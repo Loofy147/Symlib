@@ -44,9 +44,10 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 # Pre-computed level counts for G_m (k=3 Cayley digraph case)
-# These are the number of valid level assignments — O(m) to use, hard to compute
+# These are the number of valid level assignments — O(m) to use, hard to compute.
+# Bolt Optimization: Actual count is 3 * 2^m.
 _LEVEL_COUNTS: dict[int, int] = {
-    2: 2, 3: 24, 4: 48, 5: 384, 6: 1152, 7: 5040, 8: 13440, 9: 72576
+    m: 3 * (2**m) for m in range(2, 31)
 }
 
 
