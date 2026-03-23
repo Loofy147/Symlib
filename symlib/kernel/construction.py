@@ -1,18 +1,7 @@
 """
 symlib.kernel.construction
 ==========================
-Algebraic construction of solutions — no search, no randomness.
-
-CONSTRUCTION HIERARCHY
------------------------
-Level 1  Direct formula (Thm 7.1)
-    For odd m, the canonical r-triple (1, m-2, 1) always works.
-Level 2  Closure Lemma construction (general k)
-    b_{k-1} is determined by b_0,...,b_{k-2}.
-Level 3  Precomputed solutions
-    Hardcoded verified solutions for small (m, k).
-Level 4  Level enumeration (fallback)
-    Enumerate valid level assignments and check compose_Q.
+High-performance algebraic construction of sigma maps for G_m (k=3).
 """
 
 from __future__ import annotations
@@ -35,9 +24,8 @@ _FIBER_SHIFTS = ((1,0,0),(0,1,0),(0,0,1))
 class LevelMeta:
     """Precomputed properties of a valid level assignment."""
     lv: Dict[int, tuple]
-    fixed_color: int  # color c that has dj=1 for all j
-    # di[color][j] is the displacement in i-direction for color c at column j
-    di: Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]
+    fixed_color: int  # color c that has dj=1 for all columns j
+    at0_counts: Tuple[int, int, int] # Count of arc type 0 per color
 
 
 class ConstructionEngine:
@@ -92,7 +80,6 @@ class ConstructionEngine:
         if self.k == 2 and w.r_count > 0:
             return self._construct_k2()
 
-        # For k=3, use optimized level search
         if w.r_count > 0 and self.k == 3:
             return self._construct_via_levels(max_level_iters)
 
@@ -100,6 +87,7 @@ class ConstructionEngine:
 
     def _construct_k2(self) -> Optional[Sigma]:
         from itertools import permutations as iperms
+        import random
         m = self.m
         ALL_P2 = list(iperms(range(2)))
         n = m * m
@@ -125,7 +113,6 @@ class ConstructionEngine:
                         while not vis[cur]: vis[cur]=1; cur=f[cur]
                 return c
             return cc(f0)-1 + cc(f1)-1
-        import random
         rng = random.Random(42)
         for _ in range(200_000):
             sigma = [rng.randrange(2) for _ in range(n)]
@@ -138,16 +125,38 @@ class ConstructionEngine:
         return None
 
     def _construct_via_levels(self, max_iters: int) -> Optional[Sigma]:
-        """Level 4: random level enumeration over the structured space."""
+        """Level 4: structured level search with O(1) condition hit-check."""
         import random
         m = self.m
         metas = _valid_levels_cached_meta(m)
+        w = self._weights
+
+        # Guide search with valid r-tuples
+        from itertools import product as iprod
+        r_tuples = [t for t in iprod(range(1, m), repeat=3) if sum(t) == m and all(gcd(x, m) == 1 for x in t)]
+        if not r_tuples: r_tuples = [(1, 1, m-2)] # fallback
+
+        metas_by_color = [[met for met in metas if met.fixed_color == c] for c in range(3)]
         rng = random.Random(42)
 
-        for _ in range(max_iters):
-            table = [rng.choice(metas) for _ in range(m)]
-            if _is_table_valid_fast(table, m):
-                return self._table_to_sigma([meta.lv for meta in table], m)
+        # Inner loop optimization: last-level-sweep
+        for _ in range(max_iters // 100 + 2):
+            target_r = rng.choice(r_tuples)
+            roles = [c for c, count in enumerate(target_r) for _ in range(count)]
+            random.shuffle(roles)
+
+            prefix = [rng.choice(metas_by_color[fc]) for fc in roles[:-1]]
+            S = [sum(mt.at0_counts[c] for mt in prefix) for c in range(3)]
+
+            last_fc = roles[-1]
+            for last_meta in metas_by_color[last_fc]:
+                valid = True
+                for c in range(3):
+                    if gcd(S[c] + last_meta.at0_counts[c], m) != 1:
+                        valid = False; break
+                if valid:
+                    full_table = prefix + [last_meta]
+                    return self._table_to_sigma([mt.lv for mt in full_table], m)
         return None
 
     @staticmethod
@@ -197,10 +206,9 @@ class ConstructionEngine:
 
 # ── Optimized Level machinery ────────────────────────────────────────────────
 
-def _level_valid(lv: Dict[int,tuple], m: int) -> bool:
-    """O(m) validity check for level assignments."""
+def _level_valid(lv: Dict[int,list], m: int) -> bool:
+    """O(m) check: a level is valid iff dj is uniform for each color."""
     for c in range(3):
-        # Color c is fixed in this level if it maps to arc type 1 (dj=1)
         fixed = lv[0].index(c) == 1
         for j in range(1, m):
             if (lv[j].index(c) == 1) != fixed: return False
@@ -209,7 +217,7 @@ def _level_valid(lv: Dict[int,tuple], m: int) -> bool:
 
 @lru_cache(maxsize=32)
 def _valid_levels_cached(m: int) -> List[Dict]:
-    """All valid level assignments for G_m. Cached across calls."""
+    """O(m * 2^m) generation of valid levels."""
     metas = _valid_levels_cached_meta(m)
     return [meta.lv for meta in metas]
 
@@ -218,55 +226,50 @@ def _valid_levels_cached(m: int) -> List[Dict]:
 def _valid_levels_cached_meta(m: int) -> List[LevelMeta]:
     """Generate valid levels and their metadata directly in O(m * 2^m)."""
     results = []
-    # In any valid level, each color c either has dj=1 for all j or dj=0 for all j.
     for fixed_c in range(3):
         other_colors = [c for c in range(3) if c != fixed_c]
-        c1, c2 = other_colors
+        c0, c2 = other_colors
         for bits in range(1 << m):
             lv = {}
-            di_vals = [[None]*m for _ in range(3)]
+            at0_counts = [0, 0, 0]
             for j in range(m):
-                p = [None]*3; p[fixed_c] = 1
-                if (bits >> j) & 1: p[c1] = 0; p[c2] = 2
-                else:              p[c1] = 2; p[c2] = 0
+                p = [None]*3
+                p[1] = fixed_c
+                if (bits >> j) & 1: p[0]=c0; p[2]=c2; at0_counts[c0]+=1
+                else:              p[0]=c2; p[2]=c0; at0_counts[c2]+=1
                 lv[j] = tuple(p)
-                for c in range(3): di_vals[c][j] = _FIBER_SHIFTS[p.index(c)][0]
-            results.append(LevelMeta(
-                lv=lv,
-                fixed_color=fixed_c,
-                di=tuple(tuple(d) for d in di_vals)
-            ))
+            results.append(LevelMeta(lv=lv, fixed_color=fixed_c, at0_counts=tuple(at0_counts)))
     return results
 
 
-def _is_table_valid_fast(table: List[LevelMeta], m: int) -> bool:
-    """O(m) verification that a level table yields 3 Hamiltonian cycles."""
+def _check_table_accurate_meta(table: List[LevelMeta], m: int) -> bool:
+    """Legacy O(m²) verification using composed fiber map Q."""
     for c in range(3):
-        # 1. j-evolution must be a single m-cycle
-        nc = sum(1 for meta in table if meta.fixed_color == c)
-        if gcd(nc, m) != 1: return False
+        j_map = [0]*m; di_map = [0]*m
+        for j_start in range(m):
+            cur_j = j_start; sum_di = 0
+            for meta in table:
+                at = meta.lv[cur_j].index(c)
+                if at == 1: cur_j = (cur_j + 1) % m
+                elif at == 0: sum_di += 1
+            j_map[j_start] = cur_j; di_map[j_start] = sum_di % m
 
-        # 2. i-evolution after m steps must be a single cycle on the j-orbit
-        # Trace j for m steps to compute the total i-displacement sum_di
-        cur_j = 0
-        sum_di = 0
-        for meta in table:
-            sum_di += meta.di[c][cur_j]
-            if meta.fixed_color == c:
-                cur_j = (cur_j + 1) % m
-        if gcd(sum_di, m) != 1: return False
+        vis = [False] * (m * m)
+        ci, cj = 0, 0; count = 0
+        while not vis[ci * m + cj]:
+            vis[ci * m + cj] = True; count += 1
+            ni = (ci + di_map[cj]) % m; nj = j_map[cj]
+            ci, cj = ni, nj
+        if count != m * m: return False
     return True
 
-
 def _compose_Q(table: List[Dict], m: int) -> List[Dict]:
-    """Optimized O(m²) Q-composition."""
+    """Legacy O(m²) Q-composition."""
     Qs: List[Dict] = [{}, {}, {}]
     for c in range(3):
         for j_start in range(m):
-            cur_j = j_start
-            sum_di = 0
-            for s in range(m):
-                lv = table[s]
+            cur_j = j_start; sum_di = 0
+            for lv in table:
                 at = lv[cur_j].index(c)
                 sum_di += _FIBER_SHIFTS[at][0]
                 cur_j = (cur_j + _FIBER_SHIFTS[at][1]) % m
@@ -278,7 +281,9 @@ def _compose_Q(table: List[Dict], m: int) -> List[Dict]:
 
 def _is_single_cycle(Q: Dict, m: int) -> bool:
     """O(m²) single cycle check for a Z_m² permutation."""
-    n = m*m; vis = set(); cur = (0, 0)
-    while cur not in vis:
-        vis.add(cur); cur = Q[cur]
-    return len(vis) == n
+    n = m*m; vis = [False]*(m*m); cur = (0, 0)
+    count = 0
+    while not vis[cur[0]*m + cur[1]]:
+        vis[cur[0]*m + cur[1]] = True; count += 1
+        cur = Q[cur]
+    return count == n
