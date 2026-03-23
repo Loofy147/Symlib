@@ -1,29 +1,14 @@
 """
 symlib.search.equivariant
 =========================
-Equivariant simulated annealing — SA that knows the group structure.
+Group-equivariant Simulated Annealing for G_m (k=3).
 
-THE KEY INSIGHT (from the m=6 depth-3 barrier finding)
--------------------------------------------------------
-When SA stalls, the stuck configuration often has group structure.
-For m=6 = Z_2 × Z_3, the Z_3 warm-start reaches score=9 and stalls
-because single-vertex flips can't escape the Z_3 periodic structure.
-
-The escape requires moves that span a subgroup orbit — flipping all
-vertices in a Z_2-orbit simultaneously, or all vertices in a Z_3-orbit.
-
-EQUIVARIANT MOVES
------------------
-Instead of: flip random vertex v
-We add:     flip all vertices in a randomly chosen subgroup orbit of v
-
-For m=6 (Z_2 × Z_3):
-  Z_2-orbits: pairs {v, v+108}   (period-2 subgroup)
-  Z_3-orbits: triples {v, v+36, v+72}  (period-3 subgroup)
-  Full orbit: sets of 6 vertices related by all subgroup symmetries
-
-The orbit size determines the move cost — a 6-vertex flip is harder
-to accept but escapes barriers that 1-vertex flips cannot.
+The standard SA approach for G_m stalls at depth-3 local minima for
+composite m (like m=6, 10, 12). Equivariant SA uses the SES structure
+0 → H → G → G/H → 0 to define subgroup-orbit moves that flip entire
+orbits of H in a single step. This preserves the symmetry while
+changing the fiber-assignment, allowing the search to "tunnel" through
+barriers that 1-vertex flips cannot.
 
 GENERALISATION
 --------------
@@ -136,6 +121,7 @@ def run_equivariant_sa(
     T_min:        float = 0.003,
     p_orbit:      float = 0.15,    # probability of using an orbit move
     p_orbit_full: float = 0.05,    # probability of using full m-orbit move
+    p_super:      float = 0.02,    # probability of multi-orbit super-move
     verbose:      bool  = False,
     report_n:     int   = 500_000,
 ) -> Tuple[Optional[Sigma], dict]:
@@ -154,21 +140,13 @@ def run_equivariant_sa(
     T_min        : float  Final temperature
     p_orbit      : float  Probability of orbit move (vs single-vertex flip)
     p_orbit_full : float  Probability of full-orbit move
+    p_super      : float  Probability of multi-orbit super-move
     verbose      : bool   Print progress
     report_n     : int    Report interval if verbose
 
     Returns
     -------
     (sigma | None, stats_dict)
-
-    Key improvement over standard SA
-    ---------------------------------
-    Standard SA stalls at score=9 for m=6 because Z_3-structure creates
-    a depth-3 local minimum.
-
-    Equivariant SA escapes by flipping entire Z_2 or Z_3 subgroup orbits,
-    which breaks the periodic structure directly. The orbit move is larger
-    (higher cost to accept) but targets the exact structure causing the barrier.
     """
     n, arc_s, pa = _build_sa_tables(m)
     nP = 6
@@ -180,6 +158,7 @@ def run_equivariant_sa(
         orbit for orbits in subgroup_orbits.values()
         for orbit in orbits
     ]
+    primes = list(subgroup_orbits.keys())
 
     # Initialize sigma
     sigma = [rng.randrange(nP) for _ in range(n)]
@@ -201,8 +180,34 @@ def run_equivariant_sa(
 
         move_type = rng.random()
 
-        if move_type < p_orbit_full and all_orbit_lists:
-            # Full-orbit move: flip all vertices in a subgroup orbit
+        if move_type < p_super and len(primes) > 1:
+            # SUPER-MOVE: Flip multiple orbits from different prime factors
+            orbits_to_flip = []
+            for p in primes:
+                orbits_to_flip.append(rng.choice(subgroup_orbits[p]))
+
+            affected_vertices = [v for orb in orbits_to_flip for v in orb]
+            old_vals = [sigma[v] for v in affected_vertices]
+
+            # Apply different random perm to each orbit
+            for orb in orbits_to_flip:
+                new_p = rng.randrange(nP)
+                for v in orb: sigma[v] = new_p
+
+            ns = score_sigma(sigma, arc_s, pa, n)
+            d = ns - cs
+            orbit_moves += 1
+            if d < 0 or (T > 1e-9 and rng.random() < math.exp(-d / T)):
+                cs = ns
+                if cs < bs:
+                    bs = cs; best = sigma[:]; stall = 0; orbit_successes += 1
+                else: stall += 1
+            else:
+                for i, v in enumerate(affected_vertices): sigma[v] = old_vals[i]
+                stall += 1
+
+        elif move_type < p_orbit_full and all_orbit_lists:
+            # Full-orbit move: flip all vertices in a subgroup orbit to same perm
             orbit = rng.choice(all_orbit_lists)
             old_vals = [sigma[v] for v in orbit]
             new_perm = rng.randrange(nP)
@@ -266,9 +271,9 @@ def run_equivariant_sa(
                 sigma[v] = old
                 stall += 1
 
-        # Reheat on stall — temperature guided by group structure
-        if stall > 80_000:
-            T = T_init / (2 ** reheats)
+        # Reheat on stall
+        if stall > 100_000:
+            T = T_init / (1.5 ** reheats)
             reheats += 1
             stall = 0
             sigma = best[:]

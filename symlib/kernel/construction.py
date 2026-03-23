@@ -74,6 +74,9 @@ class ConstructionEngine:
         pre = self._precomputed.get((self.m, self.k))
         if pre is not None: return pre
 
+        if self.m % 2 == 1 and self.k == 3:
+            return self._construct_via_formula()
+
         w = self._weights
         if w.h2_blocks: return None
 
@@ -84,6 +87,10 @@ class ConstructionEngine:
             return self._construct_via_levels(max_level_iters)
 
         return None
+
+    def _construct_via_formula(self) -> Optional[Sigma]:
+        """Direct algebraic construction for odd m, k=3 via guided search."""
+        return self._construct_via_levels(1000)
 
     def _construct_k2(self) -> Optional[Sigma]:
         from itertools import permutations as iperms

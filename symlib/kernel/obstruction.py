@@ -6,7 +6,7 @@ Obstruction theory — check structural impossibility before any search.
 THEOREMS IMPLEMENTED
 --------------------
 Thm 6.1  Parity Obstruction
-    Even fiber size m, odd k → H² obstruction → impossible.
+    Even fiber size m, odd k → H² obstruction → any column-uniform construction (r-tuple) is impossible.
     The sum of k odd numbers (coprime-to-even) cannot equal m (even).
     O(1). Returns a formal proof object.
 
@@ -151,7 +151,7 @@ class ObstructionChecker:
         H²(Z_2, Z/2) = Z/2. The obstruction class γ₂ is nontrivial
         when: m is even AND k is odd AND all coprime-to-m elements are odd.
 
-        In that case, any k-tuple of coprime elements sums to an odd number,
+        In that case, any k-tuple of coprime elements sums to an odd number, which means no column-uniform construction (r-tuple) can exist.
         which cannot equal m (even). Contradiction.
 
         O(1) — no search, no construction attempt needed.
@@ -180,7 +180,7 @@ class ObstructionChecker:
                 f"m={m} is even. Odd ≠ even. Contradiction. □",
             ),
             evidence=(
-                f"Holds for ALL even m, ALL odd k. "
+                f"Holds for ALL even m, ALL odd k. Proves no column-uniform r-tuple exists. "
                 f"Class γ₂ ∈ H²(Z_2, Z/2) = Z/2 is nontrivial."
             ),
         )
