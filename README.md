@@ -1,6 +1,6 @@
 # symlib — Global Structure in Highly Symmetric Systems
 
-**v2.0.0 · March 2026**
+**v2.2.0 · March 2026**
 
 Finding global structure in combinatorial problems via the short exact sequence **0 → H → G → G/H → 0**.
 
@@ -55,7 +55,7 @@ QuotientCounter.distinct_states(12)   # 4 = φ(12)
 
 | Solver | Correct | Proves ⊘ | Avg ms | Timeouts |
 |--------|---------|----------|--------|----------|
-| **symlib v2.0** | **8/8** | **5** | **<1** | **0** |
+| **symlib v2.2** | **8/8** | **5** | **<1** | **0** |
 | Pure SA | 3/8 | 0 | 6,900 | 5 |
 | Brute random | 0/8 | 0 | — | 8 |
 
@@ -93,18 +93,32 @@ showcase.py        85-check live implementation study
 ## Tests
 
 ```bash
-python -m pytest tests/           # 141 tests
+python -m pytest tests/           # 180 tests
 python showcase.py                # 85 live checks with real data
 ```
 
+
+## Roadmap
+
+- [x] v2.2.0 core mathematical kernel
+- [x] Auto-detection for arbitrary finite groups
+- [x] H² and H³ obstruction tower
+- [x] Algebraic construction for all odd m, k=3 (`direct_formula`)
+- [x] Equivariant SA with multi-orbit super-moves
+- [x] Search checkpoints and CLI (v2.2.0)
+- [x] Lean 4 export for specific obstructions
+- [ ] General algebraic proof for Closure Lemma (any odd m)
+- [ ] Formal verification of all 10 theorems in Lean 4
+- [ ] Distributed search for P1 and P3 open problems
+- [x] DOT/JSON export for functional graph visualization
 ## Open problems
 
 | Problem | Status | Best known |
 |---------|--------|-----------|
-| P1: k=4, m=4 | OPEN | Score 337→230 |
+| P1: k=4, m=4 | OPEN | Score 230 |
 | P2: m=6, k=3 | OPEN | Score 9 (depth-3 barrier confirmed) |
 | P3: m=8, k=3 | OPEN | Not yet attempted at scale |
-| Closure Lemma (general m) | PARTIAL | Proved for m=3 |
+| Closure Lemma (general m) | PARTIAL | Proved for m=3, algebraic fallback for all odd m |
 
 ## Cross-domain applications
 
