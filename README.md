@@ -93,18 +93,30 @@ showcase.py        85-check live implementation study
 ## Tests
 
 ```bash
-python -m pytest tests/           # 141 tests
+python -m pytest tests/           # 180 tests
 python showcase.py                # 85 live checks with real data
 ```
 
+
+## Roadmap
+
+- [x] v2.0.0 core mathematical kernel
+- [x] Auto-detection for arbitrary finite groups
+- [x] H² and H³ obstruction tower
+- [x] Algebraic construction for all odd m, k=3 (`direct_formula`)
+- [x] Equivariant SA with multi-orbit super-moves
+- [ ] General algebraic proof for Closure Lemma (any odd m)
+- [ ] Formal verification of all 10 theorems in Lean 4
+- [ ] Distributed search for P1 and P3 open problems
+- [ ] Web-based visualization of functional graphs
 ## Open problems
 
 | Problem | Status | Best known |
 |---------|--------|-----------|
-| P1: k=4, m=4 | OPEN | Score 337→230 |
+| P1: k=4, m=4 | OPEN | Score 230 |
 | P2: m=6, k=3 | OPEN | Score 9 (depth-3 barrier confirmed) |
 | P3: m=8, k=3 | OPEN | Not yet attempted at scale |
-| Closure Lemma (general m) | PARTIAL | Proved for m=3 |
+| Closure Lemma (general m) | PARTIAL | Proved for m=3, algebraic fallback for all odd m |
 
 ## Cross-domain applications
 

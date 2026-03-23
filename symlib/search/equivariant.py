@@ -312,6 +312,15 @@ def run_equivariant_sa(
     }
 
 
+def _parallel_worker(args):
+    """Module-level worker for parallel SA."""
+    m_, seed_, max_iter_, T_init_, T_min_, p_orbit_ = args
+    return run_equivariant_sa(
+        m_, seed=seed_, max_iter=max_iter_,
+        T_init=T_init_, T_min=T_min_, p_orbit=p_orbit_,
+    )
+
+
 def run_parallel_equivariant_sa(
     m:        int,
     seeds:    List[int],
@@ -328,20 +337,12 @@ def run_parallel_equivariant_sa(
     from multiprocessing import Pool, cpu_count
 
     n_procs = min(len(seeds), cpu_count())
-
-    def worker(args):
-        m_, seed_, max_iter_, T_init_, T_min_, p_orbit_ = args
-        return run_equivariant_sa(
-            m_, seed=seed_, max_iter=max_iter_,
-            T_init=T_init_, T_min=T_min_, p_orbit=p_orbit_,
-        )
-
     args = [(m, s, max_iter, T_init, T_min, p_orbit) for s in seeds]
     all_stats = []
     best_sol = None
 
     with Pool(processes=n_procs) as pool:
-        for sol, stats in pool.imap_unordered(worker, args):
+        for sol, stats in pool.imap_unordered(_parallel_worker, args):
             all_stats.append(stats)
             if sol and not best_sol:
                 best_sol = sol

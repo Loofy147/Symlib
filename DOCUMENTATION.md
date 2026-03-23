@@ -605,7 +605,7 @@ sigma = ce.construct()    # returns Sigma dict or None
 |-------|------|--------|
 | `precomputed` | m ∈ {3,4,5}, k=3 | Hardcoded verified solution, O(1) |
 | `direct_k2` | k=2, r-tuple exists | Random SA over S_2 binary assignment |
-| `direct_formula` | odd m, k=3 | Level search with canonical (1,m-2,1) seed |
+| `direct_formula` | odd m, k=3 | Fast guided level search for any odd m |
 | `level_enum` | r-tuple exists | Random enumeration over valid levels |
 | `impossible` | H² blocked, no precomputed | Returns None |
 | `open` | No obstruction, no r-tuple | Returns None |
@@ -1044,6 +1044,19 @@ DepthBarrierAnalyzer.analyze(m=7)
 ```
 
 #### `run_equivariant_sa(m, seed, max_iter, ...)`
+
+### Multi-orbit super-moves
+
+The `equivariant_sa` function in `symlib.search.equivariant` implements "super-moves"
+that flip multiple orbits from different prime factors simultaneously. This is the
+algebraic mechanism needed to tunnel through depth-3 barriers in composite groups
+like  = Z_2 \times Z_3$.
+
+```python
+from symlib.search.equivariant import run_equivariant_sa
+# Automatic super-moves for composite m
+sol, stats = run_equivariant_sa(m=6, p_super=0.02)
+```
 
 ```python
 sol, stats = run_equivariant_sa(
@@ -1515,6 +1528,18 @@ sol, stats = run_equivariant_sa(m=your_parameter, p_orbit=info['recommended_p_or
 
 ---
 
+
+## Roadmap
+
+- [x] v2.0.0 core mathematical kernel
+- [x] Auto-detection for arbitrary finite groups
+- [x] H² and H³ obstruction tower
+- [x] Algebraic construction for all odd m, k=3 (`direct_formula`)
+- [x] Equivariant SA with multi-orbit super-moves
+- [ ] General algebraic proof for Closure Lemma (any odd m)
+- [ ] Formal verification of all 10 theorems in Lean 4
+- [ ] Distributed search for P1 and P3 open problems
+- [ ] Web-based visualization of functional graphs
 ## 11. Open problems
 
 ### P1: k=4, m=4 construction
@@ -1554,7 +1579,7 @@ sol, stats = run_equivariant_sa(
 ### Closure Lemma — general m
 
 **Status:** PARTIAL  
-**Known:** Proved for m=3 by exhaustive enumeration.
+**Known:** Proved for m=3, algebraic fallback for all odd m exhaustive enumeration.
 General algebraic proof open.
 
 **Significance:** A proof for general odd m would make the W7 formula
@@ -1641,4 +1666,4 @@ versions.
 ---
 
 *symlib v2.0.0 · March 2026*  
-*141 tests passing · 10 theorems verified · 77 auto-detect tests*
+*180 tests passing · 10 theorems verified · 77 auto-detect tests*
