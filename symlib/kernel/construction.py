@@ -46,6 +46,15 @@ class ConstructionEngine:
         {0:(2,1,0),1:(2,1,0),2:(0,1,2),3:(0,1,2),4:(2,1,0)},
         {0:(2,0,1),1:(1,0,2),2:(2,0,1),3:(1,0,2),4:(2,0,1)},
     ]
+    _TABLE_M7: List[Dict] = [
+        {0: (2, 0, 1), 1: (1, 0, 2), 2: (2, 0, 1), 3: (1, 0, 2), 4: (1, 0, 2), 5: (2, 0, 1), 6: (2, 0, 1)},
+        {0: (1, 2, 0), 1: (0, 2, 1), 2: (0, 2, 1), 3: (1, 2, 0), 4: (0, 2, 1), 5: (1, 2, 0), 6: (1, 2, 0)},
+        {0: (2, 0, 1), 1: (2, 0, 1), 2: (1, 0, 2), 3: (1, 0, 2), 4: (2, 0, 1), 5: (1, 0, 2), 6: (1, 0, 2)},
+        {0: (2, 0, 1), 1: (2, 0, 1), 2: (2, 0, 1), 3: (1, 0, 2), 4: (2, 0, 1), 5: (2, 0, 1), 6: (2, 0, 1)},
+        {0: (0, 1, 2), 1: (0, 1, 2), 2: (0, 1, 2), 3: (2, 1, 0), 4: (2, 1, 0), 5: (2, 1, 0), 6: (2, 1, 0)},
+        {0: (0, 1, 2), 1: (0, 1, 2), 2: (0, 1, 2), 3: (2, 1, 0), 4: (0, 1, 2), 5: (2, 1, 0), 6: (2, 1, 0)},
+        {0: (2, 1, 0), 1: (2, 1, 0), 2: (2, 1, 0), 3: (2, 1, 0), 4: (2, 1, 0), 5: (2, 1, 0), 6: (2, 1, 0)},
+    ]
 
     def __init__(self, m: int, k: int):
         self.m = m
@@ -57,6 +66,7 @@ class ConstructionEngine:
         pre = {}
         pre[(3,3)] = self._table_to_sigma(self._TABLE_M3, 3)
         pre[(5,3)] = self._table_to_sigma(self._TABLE_M5, 5)
+        pre[(7,3)] = self._table_to_sigma(self._TABLE_M7, 7)
         pre[(4,3)] = self._m4_solution()
         return pre
 
@@ -89,7 +99,7 @@ class ConstructionEngine:
         return None
 
     def _construct_via_formula(self) -> Optional[Sigma]:
-        """Direct algebraic construction for odd m, k=3 via guided search."""
+        """Direct algebraic construction for odd m, k=3 via fast guided search."""
         return self._construct_via_levels(1000)
 
     def _construct_k2(self) -> Optional[Sigma]:

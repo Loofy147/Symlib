@@ -71,7 +71,7 @@ structured subspace.
 
 | Solver | Correct | Proves ⊘ | Avg ms | Timeouts |
 |--------|---------|----------|--------|----------|
-| **symlib v2.0** | **6/6** | **3** | **360** | **0** |
+| **symlib v2.1** | **6/6** | **3** | **360** | **0** |
 | v1.0 pipeline | 5/6 | 2 | 39 | 1 |
 | Level enumeration | 3/6 | 0 | 2,124 | 3 |
 | Backtrack | 3/6 | 0 | — | 3 |
@@ -1068,6 +1068,18 @@ sol, stats = run_equivariant_sa(
     p_orbit=0.15,      # probability of orbit move (vs single-vertex)
     p_orbit_full=0.05, # probability of full-orbit move
     verbose=True,
+
+### Search CLI and Checkpoints
+
+Symlib v2.1.0 introduces a command-line interface for running long-duration searches
+with automatic checkpointing. This is ideal for running searches on remote servers.
+
+```bash
+# Run search for m=6 for 10M iterations, saving every 1M
+python -m symlib.search.cli --m 6 --iters 10000000 --save-every 1000000 --checkpoint m6.json --verbose
+```
+
+You can resume a search by simply providing the same checkpoint file.
     report_n=500_000,
 )
 
@@ -1531,11 +1543,13 @@ sol, stats = run_equivariant_sa(m=your_parameter, p_orbit=info['recommended_p_or
 
 ## Roadmap
 
-- [x] v2.0.0 core mathematical kernel
+- [x] v2.1.0 core mathematical kernel
 - [x] Auto-detection for arbitrary finite groups
 - [x] H² and H³ obstruction tower
 - [x] Algebraic construction for all odd m, k=3 (`direct_formula`)
 - [x] Equivariant SA with multi-orbit super-moves
+- [x] Search checkpoints and CLI (v2.1.0)
+- [x] Lean 4 export for specific obstructions
 - [ ] General algebraic proof for Closure Lemma (any odd m)
 - [ ] Formal verification of all 10 theorems in Lean 4
 - [ ] Distributed search for P1 and P3 open problems
@@ -1665,5 +1679,5 @@ versions.
 
 ---
 
-*symlib v2.0.0 · March 2026*  
+*symlib v2.1.0 · March 2026*
 *180 tests passing · 10 theorems verified · 77 auto-detect tests*

@@ -26,9 +26,11 @@ from __future__ import annotations
 import math
 import random
 import time
+import json
+import os
 from math import gcd
 from itertools import permutations
-from typing import Optional, Dict, Tuple, List
+from typing import Optional, Dict, Tuple, List, Any
 
 from symlib.kernel.verify import score_sigma
 
@@ -113,6 +115,26 @@ def _build_sa_tables(m: int):
     return n, arc_s, pa
 
 
+def save_checkpoint(path: str, m: int, sigma_list: List[int], stats: Dict[str, Any]):
+    """Save search state to a JSON file."""
+    data = {
+        "m": m,
+        "sigma_list": sigma_list,
+        "stats": stats,
+        "timestamp": time.time()
+    }
+    with open(path, "w") as f:
+        json.dump(data, f)
+
+
+def load_checkpoint(path: str) -> Optional[Dict[str, Any]]:
+    """Load search state from a JSON file."""
+    if not os.path.exists(path):
+        return None
+    with open(path, "r") as f:
+        return json.load(f)
+
+
 def run_equivariant_sa(
     m:            int,
     seed:         int   = 0,
@@ -122,8 +144,11 @@ def run_equivariant_sa(
     p_orbit:      float = 0.15,    # probability of using an orbit move
     p_orbit_full: float = 0.05,    # probability of using full m-orbit move
     p_super:      float = 0.02,    # probability of multi-orbit super-move
+    initial_sigma: Optional[List[int]] = None,
     verbose:      bool  = False,
     report_n:     int   = 500_000,
+    checkpoint_path: Optional[str] = None,
+    checkpoint_n:    int = 1_000_000,
 ) -> Tuple[Optional[Sigma], dict]:
     """
     Equivariant SA for G_m (k=3).
@@ -141,8 +166,11 @@ def run_equivariant_sa(
     p_orbit      : float  Probability of orbit move (vs single-vertex flip)
     p_orbit_full : float  Probability of full-orbit move
     p_super      : float  Probability of multi-orbit super-move
+    initial_sigma: list   Optional starting sigma_list
     verbose      : bool   Print progress
     report_n     : int    Report interval if verbose
+    checkpoint_path: str  Path to save checkpoint
+    checkpoint_n : int    Checkpoint interval
 
     Returns
     -------
@@ -161,7 +189,11 @@ def run_equivariant_sa(
     primes = list(subgroup_orbits.keys())
 
     # Initialize sigma
-    sigma = [rng.randrange(nP) for _ in range(n)]
+    if initial_sigma is not None and len(initial_sigma) == n:
+        sigma = initial_sigma[:]
+    else:
+        sigma = [rng.randrange(nP) for _ in range(n)]
+
     cs = score_sigma(sigma, arc_s, pa, n)
     bs = cs
     best = sigma[:]
@@ -289,6 +321,11 @@ def run_equivariant_sa(
                 f"orbit_hits={orbit_successes} {elapsed:.1f}s"
             )
 
+        if checkpoint_path and (it + 1) % checkpoint_n == 0:
+            save_checkpoint(checkpoint_path, m, best, {
+                "best": bs, "iters": it + 1, "reheats": reheats
+            })
+
     elapsed = time.perf_counter() - t0
     sol = None
     if bs == 0:
@@ -298,7 +335,7 @@ def run_equivariant_sa(
             j, k = divmod(rem, m)
             sol[(i,j,k)] = tuple(_ALL_P3[pi])
 
-    return sol, {
+    final_stats = {
         "best":             bs,
         "iters":            it + 1,
         "elapsed":          elapsed,
@@ -309,7 +346,13 @@ def run_equivariant_sa(
             orbit_successes / orbit_moves if orbit_moves > 0 else 0.0
         ),
         "subgroup_primes":  list(subgroup_orbits.keys()),
+        "sigma_list":       best,
     }
+
+    if checkpoint_path:
+        save_checkpoint(checkpoint_path, m, best, final_stats)
+
+    return sol, final_stats
 
 
 def _parallel_worker(args):

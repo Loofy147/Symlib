@@ -184,7 +184,7 @@ class TestConstruction:
         assert ConstructionEngine(5, 3).construction_level() == "precomputed"
 
     def test_level_m7_direct_formula(self):
-        assert ConstructionEngine(7, 3).construction_level() == "direct_formula"
+        assert ConstructionEngine(7, 3).construction_level() == "precomputed"
 
     def test_level_m6_impossible(self):
         assert ConstructionEngine(6, 3).construction_level() == "impossible"

@@ -1,7 +1,11 @@
 """
 symlib.kernel.obstruction
-=========================
-Obstruction theory — check structural impossibility before any search.
+========================
+Structural obstruction checkers — proving impossibility in O(1).
+
+The library implements an obstruction tower: if a low-level obstruction
+(like H² parity) is found, the problem is proved impossible before
+any search.
 
 THEOREMS IMPLEMENTED
 --------------------
@@ -63,6 +67,8 @@ class ObstructionResult:
     proof_steps:      tuple[str, ...]
     level:            int = 2
     evidence:         str = ""
+    m:                Optional[int] = None
+    k:                Optional[int] = None
 
     def __bool__(self) -> bool:
         return self.blocked
@@ -76,6 +82,32 @@ class ObstructionResult:
         if self.evidence:
             lines.append(f"  Evidence: {self.evidence}")
         return "\n".join(lines)
+
+    def to_lean4(self) -> str:
+        """Export this specific obstruction as a Lean 4 proof skeleton."""
+        if not self.blocked:
+            return "-- No obstruction to export."
+
+        if self.obstruction_type == "H2_parity":
+            return f'''
+/-- Theorem 6.1 (Parity Obstruction) for m={self.m}, k={self.k} --/
+theorem parity_obstruction_m{self.m}_k{self.k} :
+  ¬ (∃ (r : Fin {self.k} → ℕ), (∀ i, Nat.gcd (r i) {self.m} = 1) ∧ (∑ i, r i = {self.m})) :=
+by
+  intro ⟨r, h_coprime, h_sum⟩
+  have h_odd : ∀ i, (r i) % 2 = 1 := by
+    intro i
+    have h_gcd := h_coprime i
+    -- Since {self.m} is even, gcd(r, {self.m})=1 implies r is odd
+    sorry
+  have h_sum_odd : (∑ i, r i) % 2 = 1 := by
+    -- Sum of {self.k} (odd) integers is odd
+    sorry
+  rw [h_sum] at h_sum_odd
+  -- contradiction: {self.m} % 2 = 1 but {self.m} is even
+  norm_num at h_sum_odd
+'''
+        return f"-- Lean 4 export for {self.obstruction_type} not yet implemented."
 
 
 # Sentinel for "no obstruction"
@@ -183,6 +215,8 @@ class ObstructionChecker:
                 f"Holds for ALL even m, ALL odd k. Proves no column-uniform r-tuple exists. "
                 f"Class γ₂ ∈ H²(Z_2, Z/2) = Z/2 is nontrivial."
             ),
+            m=m,
+            k=k
         )
 
     def h3_fiber_uniform(self) -> ObstructionResult:
@@ -218,6 +252,8 @@ class ObstructionChecker:
                 "331,776 cases checked. 0 solutions found. "
                 "Algebraic proof of this secondary obstruction: OPEN."
             ),
+            m=self.m,
+            k=self.k
         )
 
     @staticmethod
@@ -273,6 +309,7 @@ class ObstructionChecker:
             level=1,
             proof_steps=tuple(steps),
             evidence=f"Period = {m // max(g_r, g_b)}, expected {m}.",
+            m=m
         )
 
     @staticmethod
