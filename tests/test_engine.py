@@ -183,7 +183,7 @@ class TestProof:
 
     def test_proof_library_version(self):
         proof = ProofBuilder().theorem_61()
-        assert proof.library_ver == "2.1.0"
+        assert proof.library_ver == "2.2.0"
 
     def test_lean4_export_non_empty(self):
         lean = Lean4Exporter().export_parity_obstruction()

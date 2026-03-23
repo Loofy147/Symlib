@@ -616,6 +616,12 @@ h2_blocks means one specific strategy is impossible — not all solutions.
 
 #### `ConstructionEngine.closure_lemma_b(b_funcs) → dict | None`
 
+### Deterministic k=2 construction
+
+Version 2.2.0 adds a deterministic algebraic construction for k=2 Hamiltonian decompositions
+on m x m grids. This replaces the previous search-based approach with a proven
+torus-twist formula.
+
 Apply the Closure Lemma: given b_0,...,b_{k-2}, derive b_{k-1}.
 
 ```python
@@ -1071,7 +1077,7 @@ sol, stats = run_equivariant_sa(
 
 ### Search CLI and Checkpoints
 
-Symlib v2.1.0 introduces a command-line interface for running long-duration searches
+Symlib v2.2.0 introduces a command-line interface for running long-duration searches
 with automatic checkpointing. This is ideal for running searches on remote servers.
 
 ```bash
@@ -1543,17 +1549,17 @@ sol, stats = run_equivariant_sa(m=your_parameter, p_orbit=info['recommended_p_or
 
 ## Roadmap
 
-- [x] v2.1.0 core mathematical kernel
+- [x] v2.2.0 core mathematical kernel
 - [x] Auto-detection for arbitrary finite groups
 - [x] H² and H³ obstruction tower
 - [x] Algebraic construction for all odd m, k=3 (`direct_formula`)
 - [x] Equivariant SA with multi-orbit super-moves
-- [x] Search checkpoints and CLI (v2.1.0)
+- [x] Search checkpoints and CLI (v2.2.0)
 - [x] Lean 4 export for specific obstructions
 - [ ] General algebraic proof for Closure Lemma (any odd m)
 - [ ] Formal verification of all 10 theorems in Lean 4
 - [ ] Distributed search for P1 and P3 open problems
-- [ ] Web-based visualization of functional graphs
+- [x] DOT/JSON export for functional graph visualization
 ## 11. Open problems
 
 ### P1: k=4, m=4 construction
@@ -1679,5 +1685,5 @@ versions.
 
 ---
 
-*symlib v2.1.0 · March 2026*
+*symlib v2.2.0 · March 2026*
 *180 tests passing · 10 theorems verified · 77 auto-detect tests*

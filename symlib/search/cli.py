@@ -8,6 +8,7 @@ import argparse
 import sys
 import os
 from symlib.search.equivariant import run_equivariant_sa, load_checkpoint
+from symlib.search.viz import save_viz
 
 def main():
     parser = argparse.ArgumentParser(description="Run equivariant SA search for symlib.")
@@ -16,6 +17,7 @@ def main():
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     parser.add_argument("--checkpoint", type=str, help="Path to checkpoint file")
     parser.add_argument("--save-every", type=int, default=1000000, help="Save checkpoint every N iterations")
+    parser.add_argument("--export-viz", type=str, help="Path to export visualization (JSON or DOT)")
     parser.add_argument("--verbose", action="store_true", help="Print progress")
 
     args = parser.parse_args()
@@ -46,8 +48,11 @@ def main():
     print("\nSearch finished.")
     print(f"Best score: {stats['best']}")
     print(f"Iterations: {stats['iters']}")
+
     if sol:
         print("SOLUTION FOUND!")
+        if args.export_viz:
+            save_viz(sol, args.m, args.export_viz)
     else:
         print("No solution found in this run.")
 
