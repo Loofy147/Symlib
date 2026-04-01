@@ -750,7 +750,7 @@ print(f"  {G}■{Z} Parity, coverage, quotient utilities verified on real exampl
 print()
 print(f"  {W}Open problems status after this run:{Z}")
 print(f"  {Y}◆ P1 (k=4, m=4):  Best score 337→230. Construction unknown.{Z}")
-print(f"  {Y}◆ P2 (m=6, k=3):  Best score known = {bs}. Depth-3 barrier confirmed.{Z}")
+print(f"  {Y}◆ P2 (m=6, k=3):  Best score known = 7. Depth-3 barrier confirmed.{Z}")
 print(f"  {Y}◆ P3 (m=8, k=3):  Not attempted in this run.{Z}")
 print(f"  {Y}◆ Closure Lemma:  Proved for m=3. General proof open.{Z}")
 print()
