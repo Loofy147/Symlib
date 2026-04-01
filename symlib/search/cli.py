@@ -13,6 +13,7 @@ from symlib.search.viz import save_viz
 def main():
     parser = argparse.ArgumentParser(description="Run equivariant SA search for symlib.")
     parser.add_argument("--m", type=int, required=True, help="Fiber size")
+    parser.add_argument("--k", type=int, default=3, help="Number of colors (default: 3)")
     parser.add_argument("--iters", type=int, default=5000000, help="Maximum iterations")
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     parser.add_argument("--checkpoint", type=str, help="Path to checkpoint file")
@@ -30,13 +31,18 @@ def main():
             if cp['m'] != args.m:
                 print(f"Error: Checkpoint fiber size {cp['m']} does not match requested {args.m}")
                 sys.exit(1)
+            # Check k if it exists in checkpoint
+            if 'k' in cp and cp['k'] != args.k:
+                print(f"Error: Checkpoint dimension k={cp['k']} does not match requested k={args.k}")
+                sys.exit(1)
             initial_sigma = cp['sigma_list']
             print(f"Resuming search with start score {cp['stats']['best']}...")
 
-    print(f"Starting equivariant SA for m={args.m}, max_iter={args.iters}, seed={args.seed}...")
+    print(f"Starting equivariant SA for m={args.m}, k={args.k}, max_iter={args.iters}, seed={args.seed}...")
 
     sol, stats = run_equivariant_sa(
         m=args.m,
+        k=args.k,
         seed=args.seed,
         max_iter=args.iters,
         initial_sigma=initial_sigma,
