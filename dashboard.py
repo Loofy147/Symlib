@@ -1,12 +1,9 @@
 import sys
-import math
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.columns import Columns
 from rich.text import Text
-from rich.style import Style
-from rich.layout import Layout
 from rich import box
 
 console = Console()
@@ -25,17 +22,18 @@ def render_dashboard():
     records_table.add_column("Status", justify="center")
     records_table.add_column("Notes", style="dim")
 
-    records_table.add_row("P1-k4", "4", "4", "33", "[yellow]OPEN[/yellow]", "Dropped from 404 -> 33 (7.3s)")
-    records_table.add_row("P2", "6", "3", "16", "[yellow]OPEN[/yellow]", "Barrier confirmed (6.8s)")
-    records_table.add_row("P3", "8", "3", "37", "[yellow]OPEN[/yellow]", "Converging fast (4.5s)")
-    records_table.add_row("m=3 k=3", "3", "3", "0", "[green]SOLVED[/green]", "9s (600k iters)")
+    records_table.add_row("P1-k4", "4", "4", "33", "[yellow]OPEN[/yellow]", "Color-3 cycles (153, 84) cover 93%")
+    records_table.add_row("P2", "6", "3", "16", "[yellow]OPEN[/yellow]", "Color-1 dominant 174/216. 6 short cycles.")
+    records_table.add_row("P3", "8", "3", "37", "[yellow]OPEN[/yellow]", "Converging: cycles 158, 267, 353 vertices")
+    records_table.add_row("m=3 k=3", "3", "3", "0", "[green]SOLVED[/green]", "9s (600k iters). Fixed score bug.")
 
     # Theoretical Breakthroughs
     theory_panel = Panel(
         Text.assemble(
-            ("Breakthrough 1: ", "bold cyan"), "Nb(m) = m^(m-1) * phi(m) proved and verified (m=7).\n",
-            ("Breakthrough 2: ", "bold cyan"), "648 = 162 x 4 resolution. Gauge orbit factors identified.\n",
-            ("Breakthrough 3: ", "bold cyan"), "Numba JIT gives 50-100x speedup on score function."
+            ("Nb(m) = m^(m-1) * φ(m): ", "bold cyan"), "Sum coprime to m verified for m=7.\n",
+            ("648 = 162 x 4 Resolution: ", "bold cyan"), "Labelled gauge orbit factor (2 shift x 2 color).\n",
+            ("Score Bug Fix: ", "bold cyan"), "Used (n_components - 1) instead of length diffs.\n",
+            ("Sigma Bug Fix: ", "bold cyan"), "Correct mapping of arc types to color permutations."
         ),
         title="Theoretical Results",
         border_style="magenta",
@@ -46,8 +44,9 @@ def render_dashboard():
     perf_panel = Panel(
         Text.assemble(
             ("JIT Status: ", "bold green"), "WARM (Numba 0.65.0)\n",
-            ("Throughput: ", "bold green"), "~100k iters/sec (m=6)\n",
-            ("Efficiency: ", "bold green"), "512 vertices in <5s (P3)"
+            ("Throughput: ", "bold green"), "~150k iters/sec (m=6)\n",
+            ("Efficiency: ", "bold green"), "512 vertices in <5s (P3)\n",
+            ("Gap Analysis: ", "bold green"), "Level-to-composition spike gap identified."
         ),
         title="Performance Engine",
         border_style="green",
