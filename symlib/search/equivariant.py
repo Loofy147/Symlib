@@ -1,95 +1,71 @@
 """
 symlib.search.equivariant
 =========================
-Group-equivariant Simulated Annealing for G_m (k=3).
-
-The standard SA approach for G_m stalls at depth-3 local minima for
-composite m (like m=6, 10, 12). Equivariant SA uses the SES structure
-0 → H → G → G/H → 0 to define subgroup-orbit moves that flip entire
-orbits of H in a single step. This preserves the symmetry while
-changing the fiber-assignment, allowing the search to "tunnel" through
-barriers that 1-vertex flips cannot.
-
-GENERALISATION
---------------
-For any G_m where m = p · q (composite):
-  Subgroup orbits come from the factor decomposition of Z_m.
-  Each prime factor p of m generates a family of p-orbits.
-  The barrier depth = number of prime factors in the stuck structure.
-
-This is the algebraic content of the "depth-3 barrier" finding —
-it's not depth-3 by accident, it's depth-3 because Z_6 = Z_2 × Z_3
-has 2 prime factors, and escaping requires breaking both simultaneously.
+Group-equivariant simulated annealing for finding Hamiltonian decompositions.
+Includes subgroup-orbit moves to escape depth-3+ barriers.
 """
 
 from __future__ import annotations
+import time
 import math
 import random
-import time
 import json
 import os
-from math import gcd
 from itertools import permutations
-from typing import Optional, Dict, Tuple, List, Any
+from typing import Dict, Tuple, List, Optional, Any
+import numpy as np
 
-from symlib.kernel.verify import score_sigma
-
-
-Sigma = Dict[Tuple[int,...], Tuple[int,...]]
-_ALL_P3 = [list(p) for p in permutations(range(3))]
-
+from symlib.kernel.verify import score_sigma_numba, Sigma
 
 def prime_factors(n: int) -> List[int]:
     """Return distinct prime factors of n."""
     factors = []
     d = 2
-    while d * d <= n:
-        if n % d == 0:
+    temp = n
+    while d * d <= temp:
+        if temp % d == 0:
             factors.append(d)
-            while n % d == 0:
-                n //= d
+            while temp % d == 0:
+                temp //= d
         d += 1
-    if n > 1:
-        factors.append(n)
+    if temp > 1:
+        factors.append(temp)
     return factors
 
 
-def build_subgroup_orbits(m: int) -> Dict[int, List[List[int]]]:
+def build_subgroup_orbits(m: int, k: int = 3) -> Dict[int, List[List[int]]]:
     """
-    Build subgroup orbits for G_m (m³ vertices).
-
-    For each prime factor p of m, the p-orbit of vertex v consists of
-    all vertices reachable from v by the period-p subgroup action.
-
-    Returns
-    -------
-    dict: prime_factor → list of orbits (each orbit = list of vertex indices)
-
-    For m=6: {2: [[0,108], [1,109], ...], 3: [[0,36,72], [1,37,73], ...]}
+    Find orbits of Z_m^k vertices under Z_p subgroup actions for p | m.
+    Returns {p: [list_of_orbits]}.
     """
-    n = m ** 3
+    n = m ** k
     primes = prime_factors(m)
-    orbits: Dict[int, List[List[int]]] = {}
+    orbits = {}
 
     for p in primes:
-        step = n // p          # orbit size = p, step between orbit members
-        period = m // p        # period in each coordinate
-        p_orbits: List[List[int]] = []
-        seen = set()
+        period = m // p
+        vis = [False] * n
+        p_orbits = []
 
-        for v in range(n):
-            if v in seen:
-                continue
+        for s in range(n):
+            if vis[s]: continue
             orbit = []
-            cur = v
-            for _ in range(p):
+            cur = s
+            # Subgroup action: i -> i + m/p
+            while not vis[cur]:
+                vis[cur] = True
                 orbit.append(cur)
-                seen.add(cur)
-                # Advance by step (wraps through the period-p subgroup)
-                i, rem = divmod(cur, m*m)
-                j, k = divmod(rem, m)
-                # Shift i-coordinate by period (one subgroup step)
-                cur = ((i + period) % m) * m*m + j*m + k
+                # Advance by period (shift first coordinate)
+                coords = []
+                temp = cur
+                for _ in range(k):
+                    coords.append(temp % m)
+                    temp //= m
+                coords[k-1] = (coords[k-1] + period) % m
+                new_v = 0
+                for d in reversed(range(k)):
+                    new_v = new_v * m + coords[d]
+                cur = new_v
             if len(orbit) == p:
                 p_orbits.append(orbit)
 
@@ -98,27 +74,39 @@ def build_subgroup_orbits(m: int) -> Dict[int, List[List[int]]]:
     return orbits
 
 
-def _build_sa_tables(m: int):
-    """Build arc-successor and permutation-arc tables for G_m (k=3)."""
-    n = m ** 3
-    arc_s = [[0]*3 for _ in range(n)]
+def _build_sa_tables(m: int, k: int = 3):
+    """Build arc-successor and permutation-arc tables for G_m,k."""
+    n = m ** k
+    arc_s = np.zeros((n, k), dtype=np.uint32)
     for idx in range(n):
-        i, rem = divmod(idx, m*m)
-        j, k = divmod(rem, m)
-        arc_s[idx][0] = ((i+1)%m)*m*m + j*m + k
-        arc_s[idx][1] = i*m*m + ((j+1)%m)*m + k
-        arc_s[idx][2] = i*m*m + j*m + (k+1)%m
-    pa = [[None]*3 for _ in range(6)]
-    for pi, p in enumerate(_ALL_P3):
+        coords = []
+        temp = idx
+        for _ in range(k):
+            coords.append(temp % m)
+            temp //= m
+        for at in range(k):
+            # Advance in dimension at
+            new_coords = list(coords)
+            new_coords[at] = (new_coords[at] + 1) % m
+            new_v = 0
+            for d in reversed(range(k)):
+                new_v = new_v * m + new_coords[d]
+            arc_s[idx, at] = new_v
+
+    all_perms = [list(p) for p in permutations(range(k))]
+    nP = len(all_perms)
+    pa = np.zeros((nP, k), dtype=np.uint32)
+    for pi, p in enumerate(all_perms):
         for at, c in enumerate(p):
-            pa[pi][c] = at
-    return n, arc_s, pa
+            pa[pi, c] = at
+    return n, arc_s, pa, all_perms
 
 
-def save_checkpoint(path: str, m: int, sigma_list: List[int], stats: Dict[str, Any]):
+def save_checkpoint(path: str, m: int, k: int, sigma_list: List[int], stats: Dict[str, Any]):
     """Save search state to a JSON file."""
     data = {
         "m": m,
+        "k": k,
         "sigma_list": sigma_list,
         "stats": stats,
         "timestamp": time.time()
@@ -137,6 +125,7 @@ def load_checkpoint(path: str) -> Optional[Dict[str, Any]]:
 
 def run_equivariant_sa(
     m:            int,
+    k:            int   = 3,
     seed:         int   = 0,
     max_iter:     int   = 5_000_000,
     T_init:       float = 3.0,
@@ -151,37 +140,14 @@ def run_equivariant_sa(
     checkpoint_n:    int = 1_000_000,
 ) -> Tuple[Optional[Sigma], dict]:
     """
-    Equivariant SA for G_m (k=3).
-
-    Adds subgroup-orbit moves to standard SA to escape depth barriers
-    caused by product structure in m (e.g., m=6 = Z_2 × Z_3).
-
-    Parameters
-    ----------
-    m            : int    Fiber size
-    seed         : int    Random seed
-    max_iter     : int    Maximum SA iterations
-    T_init       : float  Initial temperature
-    T_min        : float  Final temperature
-    p_orbit      : float  Probability of orbit move (vs single-vertex flip)
-    p_orbit_full : float  Probability of full-orbit move
-    p_super      : float  Probability of multi-orbit super-move
-    initial_sigma: list   Optional starting sigma_list
-    verbose      : bool   Print progress
-    report_n     : int    Report interval if verbose
-    checkpoint_path: str  Path to save checkpoint
-    checkpoint_n : int    Checkpoint interval
-
-    Returns
-    -------
-    (sigma | None, stats_dict)
+    Equivariant SA for G_m,k.
     """
-    n, arc_s, pa = _build_sa_tables(m)
-    nP = 6
+    n, arc_s, pa, all_perms = _build_sa_tables(m, k)
+    nP = len(all_perms)
     rng = random.Random(seed)
 
     # Build subgroup orbits for group-aware moves
-    subgroup_orbits = build_subgroup_orbits(m)
+    subgroup_orbits = build_subgroup_orbits(m, k)
     all_orbit_lists = [
         orbit for orbits in subgroup_orbits.values()
         for orbit in orbits
@@ -190,13 +156,13 @@ def run_equivariant_sa(
 
     # Initialize sigma
     if initial_sigma is not None and len(initial_sigma) == n:
-        sigma = initial_sigma[:]
+        sigma = np.array(initial_sigma, dtype=np.uint32)
     else:
-        sigma = [rng.randrange(nP) for _ in range(n)]
+        sigma = np.array([rng.randrange(nP) for _ in range(n)], dtype=np.uint32)
 
-    cs = score_sigma(sigma, arc_s, pa, n)
+    cs = score_sigma_numba(sigma, arc_s, pa, n, k)
     bs = cs
-    best = sigma[:]
+    best = sigma.copy()
 
     cool = (T_min / T_init) ** (1.0 / max_iter)
     T = T_init
@@ -221,37 +187,35 @@ def run_equivariant_sa(
             affected_vertices = [v for orb in orbits_to_flip for v in orb]
             old_vals = [sigma[v] for v in affected_vertices]
 
-            # Apply different random perm to each orbit
             for orb in orbits_to_flip:
                 new_p = rng.randrange(nP)
                 for v in orb: sigma[v] = new_p
 
-            ns = score_sigma(sigma, arc_s, pa, n)
+            ns = score_sigma_numba(sigma, arc_s, pa, n, k)
             d = ns - cs
             orbit_moves += 1
             if d < 0 or (T > 1e-9 and rng.random() < math.exp(-d / T)):
                 cs = ns
                 if cs < bs:
-                    bs = cs; best = sigma[:]; stall = 0; orbit_successes += 1
+                    bs = cs; best = sigma.copy(); stall = 0; orbit_successes += 1
                 else: stall += 1
             else:
                 for i, v in enumerate(affected_vertices): sigma[v] = old_vals[i]
                 stall += 1
 
         elif move_type < p_orbit_full and all_orbit_lists:
-            # Full-orbit move: flip all vertices in a subgroup orbit to same perm
             orbit = rng.choice(all_orbit_lists)
             old_vals = [sigma[v] for v in orbit]
             new_perm = rng.randrange(nP)
             for v in orbit:
                 sigma[v] = new_perm
-            ns = score_sigma(sigma, arc_s, pa, n)
+            ns = score_sigma_numba(sigma, arc_s, pa, n, k)
             d = ns - cs
             orbit_moves += 1
             if d < 0 or (T > 1e-9 and rng.random() < math.exp(-d / T)):
                 cs = ns
                 if cs < bs:
-                    bs = cs; best = sigma[:]; stall = 0
+                    bs = cs; best = sigma.copy(); stall = 0
                     orbit_successes += 1
                 else:
                     stall += 1
@@ -261,19 +225,18 @@ def run_equivariant_sa(
                 stall += 1
 
         elif move_type < p_orbit and all_orbit_lists:
-            # Partial-orbit move: flip an orbit with independent new values
             orbit = rng.choice(all_orbit_lists)
             old_vals = [sigma[v] for v in orbit]
             new_vals = [rng.randrange(nP) for _ in orbit]
             for i, v in enumerate(orbit):
                 sigma[v] = new_vals[i]
-            ns = score_sigma(sigma, arc_s, pa, n)
+            ns = score_sigma_numba(sigma, arc_s, pa, n, k)
             d = ns - cs
             orbit_moves += 1
             if d < 0 or (T > 1e-9 and rng.random() < math.exp(-d / T)):
                 cs = ns
                 if cs < bs:
-                    bs = cs; best = sigma[:]; stall = 0
+                    bs = cs; best = sigma.copy(); stall = 0
                     orbit_successes += 1
                 else:
                     stall += 1
@@ -283,7 +246,6 @@ def run_equivariant_sa(
                 stall += 1
 
         else:
-            # Standard single-vertex flip
             v = rng.randrange(n)
             old = sigma[v]
             new = rng.randrange(nP)
@@ -291,24 +253,23 @@ def run_equivariant_sa(
                 T *= cool
                 continue
             sigma[v] = new
-            ns = score_sigma(sigma, arc_s, pa, n)
+            ns = score_sigma_numba(sigma, arc_s, pa, n, k)
             d = ns - cs
             if d < 0 or (T > 1e-9 and rng.random() < math.exp(-d / T)):
                 cs = ns
                 if cs < bs:
-                    bs = cs; best = sigma[:]; stall = 0
+                    bs = cs; best = sigma.copy(); stall = 0
                 else:
                     stall += 1
             else:
                 sigma[v] = old
                 stall += 1
 
-        # Reheat on stall
         if stall > 100_000:
             T = T_init / (1.5 ** reheats)
             reheats += 1
             stall = 0
-            sigma = best[:]
+            sigma = best.copy()
             cs = bs
 
         T *= cool
@@ -322,7 +283,7 @@ def run_equivariant_sa(
             )
 
         if checkpoint_path and (it + 1) % checkpoint_n == 0:
-            save_checkpoint(checkpoint_path, m, best, {
+            save_checkpoint(checkpoint_path, m, k, best.tolist(), {
                 "best": bs, "iters": it + 1, "reheats": reheats
             })
 
@@ -331,9 +292,12 @@ def run_equivariant_sa(
     if bs == 0:
         sol = {}
         for idx, pi in enumerate(best):
-            i, rem = divmod(idx, m*m)
-            j, k = divmod(rem, m)
-            sol[(i,j,k)] = tuple(_ALL_P3[pi])
+            coords = []
+            temp = idx
+            for _ in range(k):
+                coords.append(temp % m)
+                temp //= m
+            sol[tuple(coords)] = tuple(all_perms[pi])
 
     final_stats = {
         "best":             bs,
@@ -342,31 +306,28 @@ def run_equivariant_sa(
         "reheats":          reheats,
         "orbit_moves":      orbit_moves,
         "orbit_successes":  orbit_successes,
-        "orbit_hit_rate":   (
-            orbit_successes / orbit_moves if orbit_moves > 0 else 0.0
-        ),
-        "subgroup_primes":  list(subgroup_orbits.keys()),
-        "sigma_list":       best,
+        "sigma_list":       best.tolist(),
     }
 
     if checkpoint_path:
-        save_checkpoint(checkpoint_path, m, best, final_stats)
+        save_checkpoint(checkpoint_path, m, k, best.tolist(), final_stats)
 
     return sol, final_stats
 
 
 def _parallel_worker(args):
     """Module-level worker for parallel SA."""
-    m_, seed_, max_iter_, T_init_, T_min_, p_orbit_ = args
+    m_, k_, seed_, max_iter_, T_init_, T_min_, p_orbit_ = args
     return run_equivariant_sa(
-        m_, seed=seed_, max_iter=max_iter_,
+        m_, k=k_, seed=seed_, max_iter=max_iter_,
         T_init=T_init_, T_min=T_min_, p_orbit=p_orbit_,
     )
 
 
 def run_parallel_equivariant_sa(
     m:        int,
-    seeds:    List[int],
+    k:        int   = 3,
+    seeds:    List[int] = [0],
     max_iter: int   = 5_000_000,
     T_init:   float = 3.0,
     T_min:    float = 0.003,
@@ -374,13 +335,11 @@ def run_parallel_equivariant_sa(
 ) -> Tuple[Optional[Sigma], List[dict]]:
     """
     Run equivariant SA across multiple seeds in parallel.
-
-    Returns (first_solution | None, all_stats).
     """
     from multiprocessing import Pool, cpu_count
 
     n_procs = min(len(seeds), cpu_count())
-    args = [(m, s, max_iter, T_init, T_min, p_orbit) for s in seeds]
+    args = [(m, k, s, max_iter, T_init, T_min, p_orbit) for s in seeds]
     all_stats = []
     best_sol = None
 
