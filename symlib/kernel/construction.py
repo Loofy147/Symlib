@@ -35,25 +35,25 @@ class ConstructionEngine:
 
     # Precomputed verified solutions
     _TABLE_M3: List[Dict] = [
-        {0:(2,0,1),1:(1,0,2),2:(2,0,1)},
-        {0:(0,2,1),1:(1,2,0),2:(0,2,1)},
-        {0:(0,1,2),1:(0,1,2),2:(0,1,2)},
+        {0: (1, 0, 2), 1: (1, 0, 2), 2: (1, 0, 2)},
+        {0: (0, 1, 2), 1: (2, 1, 0), 2: (2, 1, 0)},
+        {0: (0, 2, 1), 1: (1, 2, 0), 2: (1, 2, 0)},
     ]
     _TABLE_M5: List[Dict] = [
-        {0:(0,2,1),1:(1,2,0),2:(0,2,1),3:(0,2,1),4:(1,2,0)},
-        {0:(2,1,0),1:(2,1,0),2:(0,1,2),3:(2,1,0),4:(2,1,0)},
-        {0:(2,1,0),1:(0,1,2),2:(0,1,2),3:(2,1,0),4:(2,1,0)},
-        {0:(2,1,0),1:(2,1,0),2:(0,1,2),3:(0,1,2),4:(2,1,0)},
-        {0:(2,0,1),1:(1,0,2),2:(2,0,1),3:(1,0,2),4:(2,0,1)},
+        {0:(1,0,2),1:(1,0,2),2:(1,0,2),3:(1,0,2),4:(1,0,2)},
+        {0:(0,1,2),1:(2,1,0),2:(2,1,0),3:(2,1,0),4:(2,1,0)},
+        {0:(1,2,0),1:(0,2,1),2:(0,2,1),3:(0,2,1),4:(0,2,1)},
+        {0:(1,2,0),1:(0,2,1),2:(0,2,1),3:(0,2,1),4:(0,2,1)},
+        {0:(1,2,0),1:(0,2,1),2:(0,2,1),3:(0,2,1),4:(0,2,1)},
     ]
     _TABLE_M7: List[Dict] = [
-        {0: (2, 0, 1), 1: (1, 0, 2), 2: (2, 0, 1), 3: (1, 0, 2), 4: (1, 0, 2), 5: (2, 0, 1), 6: (2, 0, 1)},
-        {0: (1, 2, 0), 1: (0, 2, 1), 2: (0, 2, 1), 3: (1, 2, 0), 4: (0, 2, 1), 5: (1, 2, 0), 6: (1, 2, 0)},
-        {0: (2, 0, 1), 1: (2, 0, 1), 2: (1, 0, 2), 3: (1, 0, 2), 4: (2, 0, 1), 5: (1, 0, 2), 6: (1, 0, 2)},
-        {0: (2, 0, 1), 1: (2, 0, 1), 2: (2, 0, 1), 3: (1, 0, 2), 4: (2, 0, 1), 5: (2, 0, 1), 6: (2, 0, 1)},
-        {0: (0, 1, 2), 1: (0, 1, 2), 2: (0, 1, 2), 3: (2, 1, 0), 4: (2, 1, 0), 5: (2, 1, 0), 6: (2, 1, 0)},
-        {0: (0, 1, 2), 1: (0, 1, 2), 2: (0, 1, 2), 3: (2, 1, 0), 4: (0, 1, 2), 5: (2, 1, 0), 6: (2, 1, 0)},
-        {0: (2, 1, 0), 1: (2, 1, 0), 2: (2, 1, 0), 3: (2, 1, 0), 4: (2, 1, 0), 5: (2, 1, 0), 6: (2, 1, 0)},
+        {0:(1,0,2),1:(1,0,2),2:(1,0,2),3:(1,0,2),4:(1,0,2),5:(1,0,2),6:(1,0,2)},
+        {0:(0,1,2),1:(2,1,0),2:(2,1,0),3:(2,1,0),4:(2,1,0),5:(2,1,0),6:(2,1,0)},
+        {0:(1,2,0),1:(0,2,1),2:(0,2,1),3:(0,2,1),4:(0,2,1),5:(0,2,1),6:(0,2,1)},
+        {0:(1,2,0),1:(0,2,1),2:(0,2,1),3:(0,2,1),4:(0,2,1),5:(0,2,1),6:(0,2,1)},
+        {0:(1,2,0),1:(0,2,1),2:(0,2,1),3:(0,2,1),4:(0,2,1),5:(0,2,1),6:(0,2,1)},
+        {0:(1,2,0),1:(0,2,1),2:(0,2,1),3:(0,2,1),4:(0,2,1),5:(0,2,1),6:(0,2,1)},
+        {0:(1,2,0),1:(0,2,1),2:(0,2,1),3:(0,2,1),4:(0,2,1),5:(0,2,1),6:(0,2,1)},
     ]
 
     def __init__(self, m: int, k: int):
@@ -64,10 +64,14 @@ class ConstructionEngine:
 
     def _load_precomputed(self) -> dict:
         pre = {}
-        pre[(3,3)] = self._table_to_sigma(self._TABLE_M3, 3)
-        pre[(5,3)] = self._table_to_sigma(self._TABLE_M5, 5)
-        pre[(7,3)] = self._table_to_sigma(self._TABLE_M7, 7)
-        pre[(4,3)] = self._m4_solution()
+        if self.m == 3 and self.k == 3:
+            pre[(3,3)] = self._table_to_sigma(self._TABLE_M3, 3)
+        if self.m == 5 and self.k == 3:
+            pre[(5,3)] = self._table_to_sigma(self._TABLE_M5, 5)
+        if self.m == 7 and self.k == 3:
+            pre[(7,3)] = self._table_to_sigma(self._TABLE_M7, 7)
+        if self.m == 4 and self.k == 3:
+            pre[(4,3)] = self._m4_solution()
         return pre
 
     def construction_level(self) -> str:
@@ -99,50 +103,28 @@ class ConstructionEngine:
         return None
 
     def _construct_via_formula(self) -> Optional[Sigma]:
-        """Direct algebraic construction for odd m, k=3 via fast guided search."""
-        return self._construct_via_levels(1000)
+        """Deterministic O(m^2) twisted construction for all odd m."""
+        m = self.m
+        levels = []
+        levels.append([(1,0,2)] * m)
+        l1 = [(2,1,0)] * m
+        l1[0] = (0,1,2)
+        levels.append(l1)
+        for _ in range(2, m):
+            ll = [(1,2,0)] * m
+            ll[0] = (0,2,1)
+            levels.append(ll)
+        return self._table_to_sigma(levels, m)
 
     def _construct_k2(self) -> Optional[Sigma]:
         """Deterministic algebraic construction for k=2 (m x m grid)."""
         m = self.m
         sigma = {}
-        # Standard k=2 Hamiltonian decomposition: r=(1,1)
-        # We need r0+r1 = m, each gcd(ri, m)=1.
-        # This is only possible if m is even and ri are odd,
-        # or m is odd.
-        # Wait, for k=2, vertices are Z_m^2. Arc types are (1,0) and (0,1).
-        # Fiber map phi(i,j) = (i+j) mod m.
-        # We need Q0 and Q1 to be single cycles.
-        # Simple solution: sigma(i,j) = (0,1) for all (i,j)
-        # Then Q0(i,j) = (i+1, j) mod m, Q1(i,j) = (i, j+1) mod m.
-        # Each is a set of m cycles of size m. NOT Hamiltonian.
-        # We need to twist them.
-
-        # If m is odd: r0=1, r1=m-1.
-        # Twist: b0(j) = 1 if j=0 else 0.
-        # This is essentially what _construct_k2 used to search for.
-        # Let's use a known formula for m odd:
-        if m % 2 == 1:
-            for i in range(m):
-                for j in range(m):
-                    # Twist color 0 at diagonal
-                    if (i + j) % m == 0: sigma[(i, j)] = (1, 0)
-                    else:                sigma[(i, j)] = (0, 1)
-            return sigma
-
-        # If m is even, we need r0, r1 to be odd and sum to m.
-        # e.g. r0=1, r1=m-1.
-        if m % 2 == 0:
-            # For m even, k=2 parity is fine (1+1=2=m is possible for m=2,
-            # but generally we need gcd(r,m)=1).
-            # If m=4, r=(1,3). 1+3=4. 1,3 are coprime to 4.
-            for i in range(m):
-                for j in range(m):
-                    if (i + j) % m == 0: sigma[(i, j)] = (1, 0)
-                    else:                sigma[(i, j)] = (0, 1)
-            return sigma
-
-        return None
+        for i in range(m):
+            for j in range(m):
+                if (i + j) % m == 0: sigma[(i, j)] = (1, 0)
+                else:                sigma[(i, j)] = (0, 1)
+        return sigma
 
     def _construct_via_levels(self, max_iters: int) -> Optional[Sigma]:
         """Level 4: structured level search with O(1) condition hit-check."""
@@ -151,15 +133,13 @@ class ConstructionEngine:
         metas = _valid_levels_cached_meta(m)
         w = self._weights
 
-        # Guide search with valid r-tuples
         from itertools import product as iprod
         r_tuples = [t for t in iprod(range(1, m), repeat=3) if sum(t) == m and all(gcd(x, m) == 1 for x in t)]
-        if not r_tuples: r_tuples = [(1, 1, m-2)] # fallback
+        if not r_tuples: r_tuples = [(1, 1, m-2)]
 
         metas_by_color = [[met for met in metas if met.fixed_color == c] for c in range(3)]
         rng = random.Random(42)
 
-        # Inner loop optimization: last-level-sweep
         for _ in range(max_iters // 100 + 2):
             target_r = rng.choice(r_tuples)
             roles = [c for c, count in enumerate(target_r) for _ in range(count)]
@@ -226,15 +206,6 @@ class ConstructionEngine:
 
 # ── Optimized Level machinery ────────────────────────────────────────────────
 
-def _level_valid(lv: Dict[int,list], m: int) -> bool:
-    """O(m) check: a level is valid iff dj is uniform for each color."""
-    for c in range(3):
-        fixed = lv[0].index(c) == 1
-        for j in range(1, m):
-            if (lv[j].index(c) == 1) != fixed: return False
-    return True
-
-
 @lru_cache(maxsize=32)
 def _valid_levels_cached(m: int) -> List[Dict]:
     """O(m * 2^m) generation of valid levels."""
@@ -260,50 +231,3 @@ def _valid_levels_cached_meta(m: int) -> List[LevelMeta]:
                 lv[j] = tuple(p)
             results.append(LevelMeta(lv=lv, fixed_color=fixed_c, at0_counts=tuple(at0_counts)))
     return results
-
-
-def _check_table_accurate_meta(table: List[LevelMeta], m: int) -> bool:
-    """Legacy O(m²) verification using composed fiber map Q."""
-    for c in range(3):
-        j_map = [0]*m; di_map = [0]*m
-        for j_start in range(m):
-            cur_j = j_start; sum_di = 0
-            for meta in table:
-                at = meta.lv[cur_j].index(c)
-                if at == 1: cur_j = (cur_j + 1) % m
-                elif at == 0: sum_di += 1
-            j_map[j_start] = cur_j; di_map[j_start] = sum_di % m
-
-        vis = [False] * (m * m)
-        ci, cj = 0, 0; count = 0
-        while not vis[ci * m + cj]:
-            vis[ci * m + cj] = True; count += 1
-            ni = (ci + di_map[cj]) % m; nj = j_map[cj]
-            ci, cj = ni, nj
-        if count != m * m: return False
-    return True
-
-def _compose_Q(table: List[Dict], m: int) -> List[Dict]:
-    """Legacy O(m²) Q-composition."""
-    Qs: List[Dict] = [{}, {}, {}]
-    for c in range(3):
-        for j_start in range(m):
-            cur_j = j_start; sum_di = 0
-            for lv in table:
-                at = lv[cur_j].index(c)
-                sum_di += _FIBER_SHIFTS[at][0]
-                cur_j = (cur_j + _FIBER_SHIFTS[at][1]) % m
-            di_m = sum_di % m
-            for i in range(m):
-                Qs[c][(i, j_start)] = ((i + di_m) % m, cur_j)
-    return Qs
-
-
-def _is_single_cycle(Q: Dict, m: int) -> bool:
-    """O(m²) single cycle check for a Z_m² permutation."""
-    n = m*m; vis = [False]*(m*m); cur = (0, 0)
-    count = 0
-    while not vis[cur[0]*m + cur[1]]:
-        vis[cur[0]*m + cur[1]] = True; count += 1
-        cur = Q[cur]
-    return count == n
