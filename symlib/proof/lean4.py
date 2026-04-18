@@ -50,20 +50,21 @@ theorem parity_obstruction (m k : ℕ) (h_m_even : m % 2 = 0) (h_k_odd : k % 2 =
   ¬ (∃ (r : Fin k → ℕ), (∀ i, Nat.gcd (r i) m = 1) ∧ (∑ i, r i = m)) :=
 by
   intro ⟨r, h_coprime, h_sum⟩
-  -- Any r_i coprime to even m must be odd.
   have h_odd : ∀ i, (r i) % 2 = 1 := by
     intro i
-    -- Nat.gcd x m = 1 and 2 | m implies ¬(2 | x)
-    sorry
-  -- Sum of odd number (k) of odd integers is odd.
-  have h_sum_odd : (∑ i, r i) % 2 = 1 := by
-    -- Induction on k using (a + b) % 2 = (a % 2 + b % 2) % 2
-    sorry
-  -- Contradiction: m is even, but sum(r) = m is odd.
-  rw [h_sum] at h_sum_odd
-  absurd h_m_even
-  -- Nat.mod_two_eq_zero_iff_even.mpr ...
-  sorry
+    have h_gcd := h_coprime i
+    apply Nat.odd_iff_not_even.mpr
+    intro h_even
+    have : 2 ∣ Nat.gcd (r i) m := Nat.dvd_gcd (Nat.even_iff_two_dvd.mp h_even) (Nat.even_iff_two_dvd.mpr h_m_even)
+    rw [h_gcd] at this
+    norm_num at this
+  have h_sum_odd : (Finset.univ.sum r) % 2 = k % 2 := by
+    rw [← Finset.sum_nat_mod]
+    have : ∑ i, r i % 2 = ∑ i, 1 := Finset.sum_congr rfl (λ i _ => h_odd i)
+    rw [this, Finset.sum_const, Finset.card_univ, Fintype.card_fin]
+    rfl
+  rw [h_sum, h_k_odd] at h_sum_odd
+  norm_num at h_sum_odd
 '''
 
     def export_nb_formula(self) -> str:
@@ -76,9 +77,12 @@ theorem nb_formula (m : ℕ) (h_m_pos : m > 0) :
   let functions := {b : Fin m → Fin m | Nat.gcd (∑ i, (b i).val) m = 1}
   functions.ncard = m^(m-1) * Nat.totient m :=
 by
-  -- Consider the map f: (Fin m -> Fin m) -> Fin m defined by sum(b) mod m.
-  -- This map is surjective and each fiber has size m^(m-1).
-  -- The number of elements in Fin m coprime to m is φ(m).
+  -- Define f : (Fin m → Fin m) → Fin m as f(b) = (∑ b_i) mod m.
+  let f : (Fin m → Fin m) → Fin m := λ b => ⟨(∑ i, (b i).val) % m, (by apply Nat.mod_lt; exact h_m_pos)⟩
+  -- (1) f is surjective.
+  -- (2) Every fiber f⁻¹(y) has size m^(m-1).
+  -- (3) The cardinality of {y ∈ Fin m | Nat.gcd y m = 1} is φ(m).
+  -- Therefore, cardinality is φ(m) * m^(m-1).
   sorry
 '''
 

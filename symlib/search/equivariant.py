@@ -1,18 +1,20 @@
 """
 symlib.search.equivariant
 =========================
-Group-equivariant simulated annealing for finding Hamiltonian decompositions.
-Includes subgroup-orbit moves to escape depth-3+ barriers.
+Equivariant Simulated Annealing for finding Hamiltonian decompositions.
+
+Uses the group structure of Z_m^k to restrict the search space and
+enable large-scale moves (orbit flips).
 """
 
 from __future__ import annotations
 import time
-import math
-import random
 import json
 import os
-from itertools import permutations
+import math
+import random
 from typing import Dict, Tuple, List, Optional, Any
+from itertools import permutations
 import numpy as np
 
 from symlib.kernel.verify import score_sigma_numba, Sigma
@@ -37,6 +39,7 @@ def build_subgroup_orbits(m: int, k: int = 3) -> Dict[int, List[List[int]]]:
     """
     Find orbits of Z_m^k vertices under Z_p subgroup actions for p | m.
     Returns {p: [list_of_orbits]}.
+    Generates orbits for shifts in ALL k dimensions.
     """
     n = m ** k
     primes = prime_factors(m)
@@ -44,30 +47,30 @@ def build_subgroup_orbits(m: int, k: int = 3) -> Dict[int, List[List[int]]]:
 
     for p in primes:
         period = m // p
-        vis = [False] * n
         p_orbits = []
 
-        for s in range(n):
-            if vis[s]: continue
-            orbit = []
-            cur = s
-            # Subgroup action: i -> i + m/p
-            while not vis[cur]:
-                vis[cur] = True
-                orbit.append(cur)
-                # Advance by period (shift first coordinate)
-                coords = []
-                temp = cur
-                for _ in range(k):
-                    coords.append(temp % m)
-                    temp //= m
-                coords[k-1] = (coords[k-1] + period) % m
-                new_v = 0
-                for d in reversed(range(k)):
-                    new_v = new_v * m + coords[d]
-                cur = new_v
-            if len(orbit) == p:
-                p_orbits.append(orbit)
+        for dim in range(k):
+            # Reset vis for each dimension to get all possible 1D subgroup orbits
+            dim_vis = [False] * n
+            for s in range(n):
+                if dim_vis[s]: continue
+                orbit = []
+                cur = s
+                while not dim_vis[cur]:
+                    dim_vis[cur] = True
+                    orbit.append(cur)
+                    coords = []
+                    temp = cur
+                    for _ in range(k):
+                        coords.append(temp % m)
+                        temp //= m
+                    coords[dim] = (coords[dim] + period) % m
+                    new_v = 0
+                    for d in reversed(range(k)):
+                        new_v = new_v * m + coords[d]
+                    cur = new_v
+                if len(orbit) == p:
+                    p_orbits.append(orbit)
 
         orbits[p] = p_orbits
 
@@ -132,7 +135,8 @@ def run_equivariant_sa(
     T_min:        float = 0.003,
     p_orbit:      float = 0.15,    # probability of using an orbit move
     p_orbit_full: float = 0.05,    # probability of using full m-orbit move
-    p_super:      float = 0.02,    # probability of multi-orbit super-move
+    p_super:      float = 0.02,
+    p_level:      float = 0.03,    # probability of level-uniform move
     initial_sigma: Optional[List[int]] = None,
     verbose:      bool  = False,
     report_n:     int   = 500_000,
@@ -153,6 +157,17 @@ def run_equivariant_sa(
         for orbit in orbits
     ]
     primes = list(subgroup_orbits.keys())
+
+    # Build level mapping for fiber-uniform moves
+    levels = [[] for _ in range(m)]
+    for idx in range(n):
+        coords = []
+        temp = idx
+        for _ in range(k):
+            coords.append(temp % m)
+            temp //= m
+        lv = sum(coords) % m
+        levels[lv].append(idx)
 
     # Initialize sigma
     if initial_sigma is not None and len(initial_sigma) == n:
@@ -178,7 +193,26 @@ def run_equivariant_sa(
 
         move_type = rng.random()
 
-        if move_type < p_super and len(primes) > 1:
+        if move_type < p_level:
+            # LEVEL-FLIP: Change permutation for an entire fiber level
+            lv = rng.randrange(m)
+            level_v = levels[lv]
+            old_vals = [sigma[v] for v in level_v]
+            new_perm = rng.randrange(nP)
+            for v in level_v: sigma[v] = new_perm
+
+            ns = score_sigma_numba(sigma, arc_s, pa, n, k)
+            d = ns - cs
+            if d < 0 or (T > 1e-9 and rng.random() < math.exp(-d / T)):
+                cs = ns
+                if cs < bs:
+                    bs = cs; best = sigma.copy(); stall = 0
+                else: stall += 1
+            else:
+                for i, v in enumerate(level_v): sigma[v] = old_vals[i]
+                stall += 1
+
+        elif move_type < p_super and len(primes) > 1:
             # SUPER-MOVE: Flip multiple orbits from different prime factors
             orbits_to_flip = []
             for p in primes:
@@ -317,10 +351,10 @@ def run_equivariant_sa(
 
 def _parallel_worker(args):
     """Module-level worker for parallel SA."""
-    m_, k_, seed_, max_iter_, T_init_, T_min_, p_orbit_ = args
+    m_, k_, seed_, max_iter_, T_init_, T_min_, p_orbit_, p_level_ = args
     return run_equivariant_sa(
         m_, k=k_, seed=seed_, max_iter=max_iter_,
-        T_init=T_init_, T_min=T_min_, p_orbit=p_orbit_,
+        T_init=T_init_, T_min=T_min_, p_orbit=p_orbit_, p_level=p_level_,
     )
 
 
@@ -332,6 +366,7 @@ def run_parallel_equivariant_sa(
     T_init:   float = 3.0,
     T_min:    float = 0.003,
     p_orbit:  float = 0.15,
+    p_level:  float = 0.03,
 ) -> Tuple[Optional[Sigma], List[dict]]:
     """
     Run equivariant SA across multiple seeds in parallel.
@@ -339,7 +374,7 @@ def run_parallel_equivariant_sa(
     from multiprocessing import Pool, cpu_count
 
     n_procs = min(len(seeds), cpu_count())
-    args = [(m, k, s, max_iter, T_init, T_min, p_orbit) for s in seeds]
+    args = [(m, k, s, max_iter, T_init, T_min, p_orbit, p_level) for s in seeds]
     all_stats = []
     best_sol = None
 
