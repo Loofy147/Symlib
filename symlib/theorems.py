@@ -231,22 +231,39 @@ class DepthBarrierAnalyzer:
     """
 
     @staticmethod
-    def analyze(m: int) -> dict:
+    def analyze(m: int, k: int = 3) -> dict:
         from symlib.search.equivariant import prime_factors
         primes = prime_factors(m)
         is_prime = len(primes) == 1 and primes[0] == m
 
+        # Heuristic for escape parameters
+        # As barrier depth increases, we need more structural moves (p_orbit, p_level)
+        # and a higher starting temperature.
+        barrier_depth = len(primes)
+
         if is_prime:
             strategy = f"m={m} is prime. Standard SA should work."
+            p_orbit = 0.1
+            p_level = 0.01
+            T_init = 3.0
         else:
-            strategy = f"Z_{m} product structure found. Use equivariant moves."
+            strategy = f"Z_{m} product structure found. Use equivariant orbit moves for factors {primes}."
+            # Increase structural move probability based on depth
+            p_orbit = 0.15 + (0.05 * (barrier_depth - 1))
+            p_level = 0.03 + (0.02 * (barrier_depth - 1))
+            T_init = 3.0 + (1.0 * (barrier_depth - 1))
 
         return {
             "m":              m,
+            "k":              k,
             "primes":         primes,
-            "barrier_depth":  len(primes),
-            "orbit_sizes":    primes,
+            "barrier_depth":  barrier_depth,
             "is_prime":       is_prime,
             "escape_strategy": strategy,
-            "recommended_p_orbit": 0.1 * len(primes),
+            "recommended_params": {
+                "T_init":  round(T_init, 2),
+                "p_orbit": round(p_orbit, 3),
+                "p_level": round(p_level, 3),
+                "p_super": 0.05 if barrier_depth > 1 else 0.0
+            }
         }

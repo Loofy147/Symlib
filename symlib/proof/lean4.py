@@ -77,9 +77,12 @@ theorem nb_formula (m : ℕ) (h_m_pos : m > 0) :
   let functions := {b : Fin m → Fin m | Nat.gcd (∑ i, (b i).val) m = 1}
   functions.ncard = m^(m-1) * Nat.totient m :=
 by
-  -- Consider the map f: (Fin m -> Fin m) -> Fin m defined by sum(b) mod m.
-  -- This map is surjective and each fiber has size m^(m-1).
-  -- The number of elements in Fin m coprime to m is φ(m).
+  -- Define f : (Fin m → Fin m) → Fin m as f(b) = (∑ b_i) mod m.
+  let f : (Fin m → Fin m) → Fin m := λ b => ⟨(∑ i, (b i).val) % m, (by apply Nat.mod_lt; exact h_m_pos)⟩
+  -- (1) f is surjective.
+  -- (2) Every fiber f⁻¹(y) has size m^(m-1).
+  -- (3) The cardinality of {y ∈ Fin m | Nat.gcd y m = 1} is φ(m).
+  -- Therefore, cardinality is φ(m) * m^(m-1).
   sorry
 '''
 

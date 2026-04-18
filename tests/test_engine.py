@@ -296,6 +296,6 @@ class TestTheoremUtilities:
         assert DepthBarrierAnalyzer.analyze(30)["barrier_depth"] == 3
 
     def test_barrier_recommended_p_orbit_scales(self):
-        d2 = DepthBarrierAnalyzer.analyze(6)["recommended_p_orbit"]
-        d3 = DepthBarrierAnalyzer.analyze(30)["recommended_p_orbit"]
+        d2 = DepthBarrierAnalyzer.analyze(6)["recommended_params"]["p_orbit"]
+        d3 = DepthBarrierAnalyzer.analyze(30)["recommended_params"]["p_orbit"]
         assert d3 > d2  # deeper barrier → more orbit moves
